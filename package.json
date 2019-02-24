@@ -1,0 +1,19 @@
+{
+    "name": "exclude-legacy-plugin",
+    "version": "1.0.1",
+    "description": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "",
+        "prepublishOnly": "rm -rf dist && tsc"
+    },
+    "keywords": [],
+    "author": "cevek",
+    "files": [
+        "dist"
+    ],
+    "license": "ISC",
+    "dependencies": {
+        "typescript": ">3.0.0"
+    }
+}

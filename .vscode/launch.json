@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // Other configs
+        {
+            "name": "Attach to TS Server",
+            "type": "node",
+            "request": "launch",
+            "protocol": "inspector",
+            "port": 5859,
+            "sourceMaps": true,
+            "runtimeArgs": [
+                 "--inspect=5859"
+            ]
+        }
+    ]
+}
