@@ -18,7 +18,9 @@ function init(modules: {typescript: typeof ts_module}) {
                 return (x as any).apply(info.languageService, args);
             };
         }
-        function typeToString(type: ts.Type, checker: ts.TypeChecker) {
+        function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
+            if (type !== type.getNonNullableType())
+                return 'und(' + typeToString(type.getNonNullableType(), checker) + ')';
             if (type.flags & ts.TypeFlags.NumberLike) return '0';
             if (type.flags & ts.TypeFlags.StringLike) return "''";
             if (type.flags & ts.TypeFlags.BooleanLike) return 'true';
@@ -58,49 +60,29 @@ function init(modules: {typescript: typeof ts_module}) {
                 const access = token.parent;
                 if (access && ts.isPropertyAccessExpression(access)) {
                     result.access = access;
-                    if (access) {
-                        result.propName = access.name.text;
-                        const parentDeclInitializer = getTypeDeclaration(checker.getTypeAtLocation(access.expression));
-                        if (
-                            parentDeclInitializer &&
-                            ts.isObjectLiteralExpression(parentDeclInitializer) &&
-                            parentDeclInitializer.parent
-                        ) {
-                            const parentDecl = parentDeclInitializer.parent;
-                            let type;
-                            if (
-                                parentDecl &&
-                                ts.isArrayLiteralExpression(parentDecl) &&
-                                parentDecl.elements.length > 0
-                            ) {
-                                const el = parentDecl.elements[0];
-                                type = checker.getContextualType(el);
-                                if (ts.isObjectLiteralExpression(el)) {
-                                    result.queryObject = el;
-                                }
-                            } else if (
-                                parentDecl &&
-                                ts.isPropertyAssignment(parentDecl) &&
-                                ts.isObjectLiteralExpression(parentDecl.initializer) &&
-                                ts.isIdentifier(parentDecl.name)
-                            ) {
-                                type = checker.getContextualType(parentDecl.name);
-                                result.queryObject = parentDecl.initializer;
-                            }
-                            if (type && type.isUnion()) {
-                                const originalInterfaceType = type.types.find(
-                                    t => getTypeDeclaration(t) !== parentDecl,
+                    result.propName = access.name.text;
+                    const exprType = checker.getTypeAtLocation(access.expression);
+                    const nonNullType = exprType && exprType.getNonNullableType();
+                    const queryObject = getTypeDeclaration(nonNullType);
+                    if (queryObject && ts.isObjectLiteralExpression(queryObject) && queryObject.parent) {
+                        result.queryObject = queryObject;
+                        const type = checker.getContextualType(
+                            ts.isCallExpression(queryObject.parent) ? queryObject.parent : queryObject,
+                        );
+                        const nonNullType = type && type.getNonNullableType();
+                        if (nonNullType && nonNullType.isUnion()) {
+                            const originalInterfaceType = nonNullType.types.find(
+                                t => getTypeDeclaration(t) !== queryObject,
+                            );
+                            result.originalInterfaceType = originalInterfaceType;
+                            if (originalInterfaceType) {
+                                const identDeclaration = getSymbolDeclaration(
+                                    originalInterfaceType
+                                        .getProperties()
+                                        .find(symbol => symbol.escapedName === access.name.text),
                                 );
-                                result.originalInterfaceType = originalInterfaceType;
-                                if (originalInterfaceType) {
-                                    const identDeclaration = getSymbolDeclaration(
-                                        originalInterfaceType
-                                            .getProperties()
-                                            .find(symbol => symbol.escapedName === access.name.text),
-                                    );
-                                    if (identDeclaration) {
-                                        result.propType = checker.getTypeAtLocation(identDeclaration);
-                                    }
+                                if (identDeclaration) {
+                                    result.propType = checker.getTypeAtLocation(identDeclaration);
                                 }
                             }
                         }
